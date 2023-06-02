@@ -117,7 +117,7 @@ public class SetmealController {
         List<Setmeal> list = setmealService.list(queryWrapper);
         ArrayList<Object> keys = new ArrayList<>();
         list.stream().map((item)->{
-            String key="dish"+item.getCategoryId()+"_"+item.getStatus();
+            String key="dish"+item.getCategoryId()+"_"+1;
             if (item.getStatus()!=status){
                 if (!(keys.contains(key))){
                     keys.add(key);
