@@ -41,7 +41,7 @@ public class UserController {
             emailUtils.sendAuthCodeEmail(email,code);
 //            session.setAttribute("code",code);
             //将验证码存入redis,时间设为5分钟
-            stringRedisTemplate.opsForValue().set("email",code,5, TimeUnit.MINUTES);
+            stringRedisTemplate.opsForValue().set("code",code,5, TimeUnit.MINUTES);
             return R.success("发送成功");
         }
         return R.error("发送失败");
@@ -55,7 +55,7 @@ public class UserController {
         //从session中取先保存的验证码进行校验
 //        Object code1 = session.getAttribute("code");
         //从redis中取出验证码
-        String code1 = stringRedisTemplate.opsForValue().get("email");
+        Object code1 = stringRedisTemplate.opsForValue().get("code");
         //通过就进行查询，如果查询为空则是新用户则直接注册进
         if (code1!=null&&code1.equals(code)){
             LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
@@ -71,7 +71,7 @@ public class UserController {
             //将用户信息存入session，并返回用户信息
             session.setAttribute("user",user.getId());
             //将验证码从redis中删除
-            stringRedisTemplate.delete("email");
+            stringRedisTemplate.delete("code");
             return R.success(user);
         }
         return R.error("登录失败");
