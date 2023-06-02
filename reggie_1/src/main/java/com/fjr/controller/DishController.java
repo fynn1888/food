@@ -1,6 +1,8 @@
 package com.fjr.controller;
 
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fjr.common.R;
@@ -15,10 +17,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @RestController
@@ -31,6 +35,8 @@ public class DishController {
     private CategoryService categoryService;
     @Autowired
     private DishFlavorService dishFlavorService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 新增菜品，自定义了service层，新加了一个两张表的实体类，菜品和口味
@@ -119,15 +125,23 @@ public class DishController {
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.in(Dish::getId,ids);
         List<Dish> list = dishService.list(queryWrapper);
+        ArrayList<Object> keys = new ArrayList<>();
         //使用stream流将status属性更改，然后再改数据库
         List<Dish> dishList = list.stream().map((item) -> {
-
+            String key="dish"+item.getCategoryId()+"_"+1;
             if (!(item.getStatus() == status)) {
+                if (!(keys.contains(key))){
+                    keys.add(key);
+                }
                 item.setStatus(status);
             }
             return item;
         }).collect(Collectors.toList());
         dishService.updateBatchById(dishList);
+        //将更新了状态的菜品数据从redis中删除
+        for (Object key : keys) {
+            stringRedisTemplate.delete((String) key);
+        }
         return R.success("修改成功");
     }
 
@@ -150,6 +164,7 @@ public class DishController {
             return item;
         }).collect(Collectors.toList());
         dishService.updateBatchById(dishList);
+
         return R.success("删除成功");
     }
 
@@ -160,6 +175,14 @@ public class DishController {
      */
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
+        //先从redis中取数据，如果为空就查数据库,构造动态的key,将每个分类分别存入redis
+        String key="dish"+dish.getCategoryId()+"_"+dish.getStatus();
+        List<DishDto> dtoList=null;
+        String s = stringRedisTemplate.opsForValue().get(key);
+        dtoList= (List<DishDto>) JSONArray.parse(s);
+        if (dtoList!=null){
+            return R.success(dtoList);
+        }
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         //如果是不确定有没有的条件就要添加一个判断是否为空
         queryWrapper.eq(dish.getCategoryId()!=null,Dish::getCategoryId,dish.getCategoryId());
@@ -168,9 +191,7 @@ public class DishController {
         queryWrapper.eq(Dish::getStatus,1);
         queryWrapper.eq(Dish::getIsDeleted,0);
         List<Dish> list = dishService.list(queryWrapper);
-
-        List<DishDto> dtoList=null;
-        //    将集合处理，设置categoryName，这里先使用流的filter方法将被逻辑删除的菜去掉，详细查阅java8新特性stream流api
+        //将集合处理，设置categoryName，这里先使用流的filter方法将被逻辑删除的菜去掉，详细查阅java8新特性stream流api
         dtoList=list.stream().filter(item->item.getIsDeleted()!=1
         ).map((item)->{
             //新建一个dishDto来装循环出的每一个菜品，然后查出菜的口味set进dto
@@ -185,6 +206,9 @@ public class DishController {
             }
             return dishDto;
         }).collect(Collectors.toList());
+        //首次查将数据存入redis
+        String s1 = JSON.toJSONString(dtoList);
+        stringRedisTemplate.opsForValue().set(key,s1,1, TimeUnit.HOURS);
         return R.success(dtoList);
     }
 }

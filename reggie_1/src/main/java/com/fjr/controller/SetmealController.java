@@ -1,10 +1,14 @@
 package com.fjr.controller;
 
+import com.alibaba.fastjson.JSON;
+import com.alibaba.fastjson.JSONArray;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fjr.common.R;
+import com.fjr.dto.DishDto;
 import com.fjr.dto.SetmealDto;
 import com.fjr.entity.Category;
+import com.fjr.entity.Dish;
 import com.fjr.entity.Setmeal;
 import com.fjr.entity.SetmealDish;
 import com.fjr.service.CategoryService;
@@ -14,9 +18,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -29,6 +36,8 @@ public class SetmealController {
     private SetmealDishService setmealDishService;
     @Autowired
     private CategoryService categoryService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 新增套餐
@@ -106,13 +115,22 @@ public class SetmealController {
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.in(Setmeal::getId,ids);
         List<Setmeal> list = setmealService.list(queryWrapper);
+        ArrayList<Object> keys = new ArrayList<>();
         list.stream().map((item)->{
+            String key="dish"+item.getCategoryId()+"_"+item.getStatus();
             if (item.getStatus()!=status){
+                if (!(keys.contains(key))){
+                    keys.add(key);
+                }
                 item.setStatus(status);
             }
             return item;
         }).collect(Collectors.toList());
         setmealService.updateBatchById(list);
+        //将更新了状态的菜品数据从redis中删除
+        for (Object key : keys) {
+            stringRedisTemplate.delete((String) key);
+        }
         return R.success("状态修改成功");
     }
 
@@ -140,10 +158,22 @@ public class SetmealController {
 
     @GetMapping("/list")
     public R<List<Setmeal>> list(Setmeal setmeal){
+        //先从redis中取数据，如果为空就查数据库,构造动态的key,将每个分类分别存入redis
+        String key="setmeal"+setmeal.getCategoryId()+"_"+setmeal.getStatus();
+        List<Setmeal> dtoList=null;
+        String s = stringRedisTemplate.opsForValue().get(key);
+        dtoList= (List<Setmeal>) JSONArray.parse(s);
+        if (dtoList!=null){
+            return R.success(dtoList);
+        }
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Setmeal::getCategoryId,setmeal.getCategoryId());
         queryWrapper.eq(Setmeal::getStatus,1);
+        queryWrapper.eq(Setmeal::getIsDeleted,0);
         List<Setmeal> list = setmealService.list(queryWrapper);
+        //首次查将数据存入redis
+        String s1 = JSON.toJSONString(dtoList);
+        stringRedisTemplate.opsForValue().set(key,s1,1, TimeUnit.HOURS);
         return R.success(list);
     }
 }

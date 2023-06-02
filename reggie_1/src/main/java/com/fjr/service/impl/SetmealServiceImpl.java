@@ -10,6 +10,7 @@ import com.fjr.service.SetmealService;
 import com.fjr.mapper.SetmealMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,8 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal>
     implements SetmealService{
     @Autowired
     private SetmealDishService setmealDishService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public void saveWithDish(SetmealDto setmealDto) {
@@ -41,6 +44,9 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal>
         }).collect(Collectors.toList());
         //这里debug发现其实stream流结束后是会将原集合数据更改掉，所以不需要再新建一个集合来接收
         setmealDishService.saveBatch(setmealDishes);
+        //将redis内的数据精确清空
+        String key="setmeal"+setmealDto.getCategoryId()+"_"+setmealDto.getStatus();
+        stringRedisTemplate.delete(key);
     }
 
     @Override
@@ -68,6 +74,9 @@ public class SetmealServiceImpl extends ServiceImpl<SetmealMapper, Setmeal>
             return item;
         }).collect(Collectors.toList());
         setmealDishService.saveBatch(list);
+        //将redis内的数据精确清空
+        String key="setmeal"+setmealDto.getCategoryId()+"_"+setmealDto.getStatus();
+        stringRedisTemplate.delete(key);
     }
 }
 
