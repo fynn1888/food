@@ -10,7 +10,7 @@ import com.fjr.service.DishService;
 import com.fjr.mapper.DishMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,10 +29,9 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish>
     implements DishService{
     @Autowired
     private DishFlavorService dishFlavorService;
-    @Autowired
-    private StringRedisTemplate stringRedisTemplate;
 
     @Override
+    @CacheEvict(value = "dishCache",key = "#dishDto.categoryId")
     public void saveWithFlavor(DishDto dishDto) {
         //先将dish表的数据写入
         this.save(dishDto);
@@ -53,8 +52,8 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish>
         }).collect(Collectors.toList());
         dishFlavorService.saveBatch(flavors);
         //将redis内的数据精确清空
-        String key="dish"+dishDto.getCategoryId()+"_"+dishDto.getStatus();
-        stringRedisTemplate.delete(key);
+//        String key="dishCache::"+dishDto.getCategoryId();
+//        stringRedisTemplate.delete(key);
     }
 
     @Override
@@ -76,6 +75,7 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish>
     }
 
     @Override
+    @CacheEvict(value = "dishCache",key = "#dishDto.categoryId")
     public void updateWithFlavor(DishDto dishDto) {
         //先将dish表修改
         this.updateById(dishDto);
@@ -99,8 +99,8 @@ public class DishServiceImpl extends ServiceImpl<DishMapper, Dish>
         }).collect(Collectors.toList());
         dishFlavorService.saveBatch(flavors);
         //将redis内的数据精确清空
-        String key="dish"+dishDto.getCategoryId()+"_"+dishDto.getStatus();
-        stringRedisTemplate.delete(key);
+//        String key="dishCache::"+dishDto.getCategoryId();
+//        stringRedisTemplate.delete(key);
     }
 }
 

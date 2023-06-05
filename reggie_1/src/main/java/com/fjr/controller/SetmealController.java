@@ -14,6 +14,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
@@ -84,6 +87,7 @@ public class SetmealController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "setMealCache",allEntries = true)
     public R<String> delete(@RequestParam List<Long> ids){
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.in(Setmeal::getId,ids);
@@ -106,26 +110,27 @@ public class SetmealController {
      * @return
      */
     @PostMapping("/status/{status}")
+    @CacheEvict(value = "setMealCache",allEntries = true)
     public R<String> updateStatus(@PathVariable int status,@RequestParam List<Long> ids){
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.in(Setmeal::getId,ids);
         List<Setmeal> list = setmealService.list(queryWrapper);
-        ArrayList<Object> keys = new ArrayList<>();
+//        ArrayList<Object> keys = new ArrayList<>();
         list.stream().map((item)->{
-            String key="dish"+item.getCategoryId()+"_"+1;
+//            String key="setMealCache::"+item.getCategoryId();
             if (item.getStatus()!=status){
-                if (!(keys.contains(key))){
-                    keys.add(key);
-                }
+//                if (!(keys.contains(key))){
+//                    keys.add(key);
+//                }
                 item.setStatus(status);
             }
             return item;
         }).collect(Collectors.toList());
         setmealService.updateBatchById(list);
         //将更新了状态的菜品数据从redis中删除
-        for (Object key : keys) {
-            stringRedisTemplate.delete((String) key);
-        }
+//        for (Object key : keys) {
+//            stringRedisTemplate.delete((String) key);
+//        }
         return R.success("状态修改成功");
     }
 
@@ -146,29 +151,31 @@ public class SetmealController {
      * @return
      */
     @PutMapping
+    @CacheEvict(value = "setMealCache",key = "#setmealDto.categoryId")
     public R<String> update(@RequestBody SetmealDto setmealDto){
         setmealService.updateWithDish(setmealDto);
         return R.success("修改成功");
     }
 
     @GetMapping("/list")
+    @Cacheable(value = "setMealCache",key = "#setmeal.categoryId")
     public R<List<Setmeal>> list(Setmeal setmeal){
-        //先从redis中取数据，如果为空就查数据库,构造动态的key,将每个分类分别存入redis
-        String key="setmeal"+setmeal.getCategoryId()+"_"+setmeal.getStatus();
+//        //先从redis中取数据，如果为空就查数据库,构造动态的key,将每个分类分别存入redis
+//        String key="setmeal"+setmeal.getCategoryId()+"_"+setmeal.getStatus();
         List<Setmeal> dtoList=null;
-        String s = stringRedisTemplate.opsForValue().get(key);
-        dtoList= (List<Setmeal>) JSONArray.parse(s);
-        if (dtoList!=null){
-            return R.success(dtoList);
-        }
+//        String s = stringRedisTemplate.opsForValue().get(key);
+//        dtoList= (List<Setmeal>) JSONArray.parse(s);
+//        if (dtoList!=null){
+//            return R.success(dtoList);
+//        }
         LambdaQueryWrapper<Setmeal> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.eq(Setmeal::getCategoryId,setmeal.getCategoryId());
         queryWrapper.eq(Setmeal::getStatus,1);
         queryWrapper.eq(Setmeal::getIsDeleted,0);
         List<Setmeal> list = setmealService.list(queryWrapper);
-        //首次查将数据存入redis
-        String s1 = JSON.toJSONString(dtoList);
-        stringRedisTemplate.opsForValue().set(key,s1,1, TimeUnit.HOURS);
+//        //首次查将数据存入redis
+//        String s1 = JSON.toJSONString(dtoList);
+//        stringRedisTemplate.opsForValue().set(key,s1,1, TimeUnit.HOURS);
         return R.success(list);
     }
 }

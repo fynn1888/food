@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
@@ -127,7 +128,7 @@ public class DishController {
         ArrayList<Object> keys = new ArrayList<>();
         //使用stream流将status属性更改，然后再改数据库
         List<Dish> dishList = list.stream().map((item) -> {
-            String key="dish"+item.getCategoryId()+"_"+1;
+            String key="dishCache::"+item.getCategoryId();
             if (!(item.getStatus() == status)) {
                 if (!(keys.contains(key))){
                     keys.add(key);
@@ -150,6 +151,7 @@ public class DishController {
      * @return
      */
     @DeleteMapping
+    @CacheEvict(value = "dishCache",allEntries = true)
     public R<String> delete(@RequestParam List<Long> ids){
         //用获取到的id数组查出要改的实体
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
@@ -163,7 +165,6 @@ public class DishController {
             return item;
         }).collect(Collectors.toList());
         dishService.updateBatchById(dishList);
-
         return R.success("删除成功");
     }
 
@@ -175,7 +176,7 @@ public class DishController {
     @GetMapping("/list")
     public R<List<DishDto>> list(Dish dish){
         //先从redis中取数据，如果为空就查数据库,构造动态的key,将每个分类分别存入redis
-        String key="dish"+dish.getCategoryId()+"_"+dish.getStatus();
+        String key="dishCache::"+dish.getCategoryId();
         List<DishDto> dtoList=null;
         String s = stringRedisTemplate.opsForValue().get(key);
         dtoList= (List<DishDto>) JSONArray.parse(s);
