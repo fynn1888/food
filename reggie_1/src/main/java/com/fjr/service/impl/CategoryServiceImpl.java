@@ -31,6 +31,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         LambdaQueryWrapper<Setmeal> setmealLambdaQueryWrapper = new LambdaQueryWrapper<>();
         //添加条件
         dishLambdaQueryWrapper.eq(Dish::getCategoryId,id);
+        dishLambdaQueryWrapper.eq(Dish::getIsDeleted,0);
         //查看分类下有没有菜品
         int count1 = dishService.count(dishLambdaQueryWrapper);
         //判断有无
@@ -39,6 +40,7 @@ public class CategoryServiceImpl extends ServiceImpl<CategoryMapper, Category>
         }
         //添加条件
         setmealLambdaQueryWrapper.eq(Setmeal::getCategoryId,id);
+        setmealLambdaQueryWrapper.eq(Setmeal::getIsDeleted,0);
         //查看套餐下有无菜品
         int count2 = setmealService.count(setmealLambdaQueryWrapper);
         if (count2>0){

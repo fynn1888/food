@@ -66,6 +66,7 @@ public class DishController {
         LambdaQueryWrapper<Dish> queryWrapper = new LambdaQueryWrapper<>();
         queryWrapper.orderByAsc(Dish::getSort);
         queryWrapper.like(StringUtils.isNotEmpty(name),Dish::getName,name);
+        queryWrapper.eq(Dish::getIsDeleted,0);
         dishService.page(dishPage,queryWrapper);
         //将查询结果除了菜品集合其他属性克隆给dishDto的分页对象
         BeanUtils.copyProperties(dishPage,dtoPage,"records");

@@ -13,10 +13,12 @@ import com.fjr.service.OrderDetailService;
 import com.fjr.service.OrdersService;
 import com.sun.org.apache.xpath.internal.operations.Or;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -107,5 +109,43 @@ public class OrdersController {
         //保存订单详情
         orderDetailService.saveBatch(list);
         return R.success("再来一单成功");
+    }
+
+    @GetMapping("/page")
+    public R<Page<OrderDto>> orders(int page, int pageSize, String number, String beginTime,String endTime){
+        //先将order信息查出
+        log.info(beginTime+"_"+endTime);
+        LambdaQueryWrapper<Orders> queryWrapper = new LambdaQueryWrapper<>();
+        Page<Orders> ordersPage = new Page<>(page,pageSize);
+//        queryWrapper.eq(Orders::getUserId, BaseContext.getCurrentId());
+//        Page<Orders> orderList = ordersService.page(ordersPage, queryWrapper);
+        queryWrapper.eq(StringUtils.isNotEmpty(number),Orders::getNumber,number);
+        if (beginTime!=null&&endTime!=null){
+            queryWrapper.between(Orders::getOrderTime,beginTime,endTime);
+        }
+        Page<Orders> page1 = ordersService.page(ordersPage,queryWrapper);
+        //新建dto分页对象
+        Page<OrderDto> orderDtoPage = new Page<>(page, pageSize);
+        //将原来的数据复制给dto的分页除了records
+        BeanUtils.copyProperties(ordersPage,orderDtoPage,"records");
+        //取出订单查询结果records
+        List<Orders> ordersPageRecords = ordersPage.getRecords();
+        //新建一个list<orderDto>接收处理后的数据
+        List<OrderDto> list=null;
+        //将records做处理，使用stream流，在里面新建一个dto对象然后把数据set进去返回dto对象
+        list=ordersPageRecords.stream().map((item)->{
+            OrderDto orderDto = new OrderDto();
+            //将数据复制给dto
+            BeanUtils.copyProperties(item,orderDto);
+            //获取订单id查询订单详情,再将订单详情查询出来然后set进去
+            String orderId = item.getNumber();
+            LambdaQueryWrapper<OrderDetail> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(OrderDetail::getOrderId,orderId);
+            List<OrderDetail> detailList = orderDetailService.list(wrapper);
+            orderDto.setOrderDetails(detailList);
+            return orderDto;
+        }).collect(Collectors.toList());
+        orderDtoPage.setRecords(list);
+        return R.success(orderDtoPage);
     }
 }
