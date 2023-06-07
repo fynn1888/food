@@ -24,7 +24,7 @@ mybatis-plus:
     db-config:
       id-type: assign_id
 reggie:
-  path: D:\BaiduNetdiskDownload\img\
+  path: /cesimg
 email:
   emailUserName: 1453917871@qq.com
   emailPassWord: gwpcoihxqclvbaae
