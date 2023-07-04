@@ -1,5 +1,6 @@
 package com.fjr.controller;
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fjr.common.R;
@@ -8,6 +9,7 @@ import com.fjr.service.EmployeeService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.DigestUtils;
 import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpServletRequest;
@@ -20,6 +22,8 @@ import java.time.LocalDateTime;
 public class EmployeeController {
     @Autowired
     private EmployeeService employeeService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     /**
      * 登录功能
@@ -55,11 +59,13 @@ public class EmployeeController {
 
         //全部pass就将id设置session域，并返回正确数据
         request.getSession().setAttribute("employee",emp.getId());
+//        stringRedisTemplate.opsForValue().set("employee", JSON.toJSONString(emp.getId()));
         return R.success(emp);
     }
     @PostMapping("/logout")
     public R<String> logout(HttpServletRequest request){
         request.getSession().removeAttribute("employee");
+//        stringRedisTemplate.delete("employee");
         return R.success("quit");
     }
 

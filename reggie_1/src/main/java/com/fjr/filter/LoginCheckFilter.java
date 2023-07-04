@@ -6,6 +6,8 @@ import com.alibaba.fastjson.JSON;
 import com.fjr.common.BaseContext;
 import com.fjr.common.R;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.util.AntPathMatcher;
 
 import javax.servlet.*;
@@ -19,6 +21,8 @@ import java.io.IOException;
 //开启日志功能（lombok）
 @Slf4j
 public class LoginCheckFilter implements Filter {
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
     //使用工具AntPathMatcher匹配器，可以匹配通配符**
     public static final AntPathMatcher PATH_MATCHER=new AntPathMatcher();
     @Override

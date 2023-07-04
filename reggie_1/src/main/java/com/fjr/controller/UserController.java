@@ -1,6 +1,7 @@
 package com.fjr.controller;
 
 
+import com.alibaba.fastjson.JSON;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fjr.common.R;
 import com.fjr.entity.User;
@@ -62,7 +63,7 @@ public class UserController {
             queryWrapper.eq(User::getPhone,email);
             User user = userService.getOne(queryWrapper);
             if (user==null){
-                user = new User();
+//                user = new User();
                 user.setStatus(1);
                 user.setPhone(email);
                 user.setName("新用户"+email);
@@ -70,10 +71,17 @@ public class UserController {
             }
             //将用户信息存入session，并返回用户信息
             session.setAttribute("user",user.getId());
+//            stringRedisTemplate.opsForValue().set("user", JSON.toJSONString(user.getId()));
             //将验证码从redis中删除
             stringRedisTemplate.delete("code");
             return R.success(user);
         }
         return R.error("登录失败");
+    }
+    @PostMapping("/loginout")
+    public R<String> loginout(HttpServletRequest request){
+        request.getSession().removeAttribute("user");
+//        stringRedisTemplate.delete("user");
+        return R.success("退出成功");
     }
 }
